@@ -1,0 +1,129 @@
+﻿<Window x:Class="TodoApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:TodoApp"
+        Title="To-Do List" Height="500" Width="700">
+
+    <Window.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="White" Offset="0.0"/>
+            <GradientStop Color="#FFE0E0E0" Offset="1.0"/>
+        </LinearGradientBrush>
+    </Window.Background>
+
+    <Window.Resources>
+        <local:CompletedToStrikethroughConverter x:Key="CompletedToStrikethroughConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <!-- Row 0: List selector + buttons for new list and remove list -->
+            <RowDefinition Height="Auto"/>
+            <!-- Row 1: Task input area -->
+            <RowDefinition Height="Auto"/>
+            <!-- Row 2: Task list display -->
+            <RowDefinition/>
+            <!-- Row 3: Footer (Save/Load) -->
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ROW 0: List selection and management -->
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
+            <ComboBox x:Name="ListSelector"
+                      Width="200"
+                      VerticalAlignment="Center"
+                      SelectionChanged="ListSelector_SelectionChanged"
+                      DisplayMemberPath="Name"/>
+            <Button x:Name="AddNewListButton"
+                    Content="New List"
+                    Width="80"
+                    Margin="10,0,0,0"
+                    Click="AddNewListButton_Click"/>
+            <Button x:Name="RemoveListButton"
+                    Content="Remove List"
+                    Width="90"
+                    Margin="10,0,0,0"
+                    Click="RemoveListButton_Click"/>
+        </StackPanel>
+
+        <!-- ROW 1: Input Area for New Tasks -->
+        <StackPanel Orientation="Horizontal"
+                    Grid.Row="1"
+                    Margin="0,0,0,10">
+            <TextBox x:Name="TaskInput"
+                     Width="350"
+                     VerticalAlignment="Center"
+                     Height="30"
+                     FontSize="14"
+                     Text="Enter a new task..."
+                     Margin="0,0,10,0"/>
+            <Button x:Name="AddTaskButton"
+                    Content="Add Task"
+                    Width="80"
+                    Click="AddTask_Click"/>
+        </StackPanel>
+
+        <!-- ROW 2: Task List -->
+        <ListBox x:Name="TaskList"
+                 Grid.Row="2"
+                 HorizontalContentAlignment="Stretch">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type local:TodoTask}">
+                    <Border CornerRadius="5"
+                            BorderBrush="#FFC0C0C0"
+                            BorderThickness="1"
+                            Margin="5"
+                            Padding="10"
+                            Background="White">
+                        <StackPanel>
+                            <!-- Row for checkbox & title & remove button -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <CheckBox IsChecked="{Binding IsCompleted}"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0"/>
+                                <TextBlock Text="{Binding Title}"
+                                           VerticalAlignment="Center"
+                                           FontSize="14"
+                                           Width="Auto"
+                                           TextDecorations="{Binding IsCompleted,
+                                            Converter={StaticResource CompletedToStrikethroughConverter}}"
+                                           Margin="0,0,10,0"/>
+                                <Button Content="Remove"
+                                        Margin="10,0,0,0"
+                                        Click="RemoveTaskButton_Click"
+                                        Tag="{Binding}"/>
+                            </StackPanel>
+
+                            <!-- Row of checkboxes for recurring days -->
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                <CheckBox IsChecked="{Binding Sunday}" Content="Sun" Margin="0,0,5,0"/>
+                                <CheckBox IsChecked="{Binding Monday}" Content="Mon" Margin="0,0,5,0"/>
+                                <CheckBox IsChecked="{Binding Tuesday}" Content="Tue" Margin="0,0,5,0"/>
+                                <CheckBox IsChecked="{Binding Wednesday}" Content="Wed" Margin="0,0,5,0"/>
+                                <CheckBox IsChecked="{Binding Thursday}" Content="Thu" Margin="0,0,5,0"/>
+                                <CheckBox IsChecked="{Binding Friday}" Content="Fri" Margin="0,0,5,0"/>
+                                <CheckBox IsChecked="{Binding Saturday}" Content="Sat" Margin="0,0,5,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- ROW 3: Save/Load buttons -->
+        <StackPanel Orientation="Horizontal"
+                    Grid.Row="3"
+                    HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
+            <Button x:Name="SaveTasksButton"
+                    Content="Save"
+                    Width="80"
+                    Margin="0,0,10,0"
+                    Click="SaveTasks_Click"/>
+            <Button x:Name="LoadTasksButton"
+                    Content="Load"
+                    Width="80"
+                    Click="LoadTasks_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
