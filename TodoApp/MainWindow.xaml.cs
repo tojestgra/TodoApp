@@ -1,66 +1,72 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Windows;
-using System.Windows.Data;
+using System.Windows.Controls;
+using Common.DTO;
 
 namespace TodoApp
 {
-    public class TodoList
-    {
-        public string Name { get; set; }
-        public List<TodoTask> Tasks { get; set; } = new List<TodoTask>();
-    }
-    public class TodoTask
-    {
-        public string Title { get; set; }
-        public bool IsCompleted { get; set; }
-        public bool Sunday { get; set; }
-        public bool Monday { get; set; }
-        public bool Tuesday { get; set; }
-        public bool Wednesday { get; set; }
-        public bool Thursday { get; set; }
-        public bool Friday { get; set; }
-        public bool Saturday { get; set; }
-    }
-    public class CompletedToStrikethroughConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is bool isCompleted && isCompleted)
-            {
-                return TextDecorations.Strikethrough;
-            }
-            return null; // No decoration if not completed
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-    // A simple container to hold multiple lists.
-    public class AppData
-    {
-        public List<TodoList> Lists { get; set; } = new List<TodoList>();
-    }
     public partial class MainWindow : Window
     {
-        // Our container holding multiple lists
-        private AppData appData = new AppData();
+
+        #region Dependency properties
+
+
+        public ObservableCollection<TodoList> MyToDoLists
+        {
+            get { return (ObservableCollection<TodoList>)GetValue(MyToDoListsProperty); }
+            set { SetValue(MyToDoListsProperty, value); }
+        }
+
+        // Using a DependencyProperty as the backing store for MyToDoLists.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty MyToDoListsProperty =
+            DependencyProperty.Register("MyToDoLists", typeof(ObservableCollection<TodoList>), typeof(MainWindow), new PropertyMetadata(new ObservableCollection<TodoList>()));
+
+
+
+
+        public TodoList CurrentToDoList
+        {
+            get { return (TodoList)GetValue(CurrentToDoListProperty); }
+            set { SetValue(CurrentToDoListProperty, value); }
+        }
+
+        // Using a DependencyProperty as the backing store for CurrentToDoList.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty CurrentToDoListProperty =
+            DependencyProperty.Register("CurrentToDoList", typeof(TodoList), typeof(MainWindow), new PropertyMetadata(null));
+
+
+        #endregion
+
+        public bool IsLoading { get; set; } = true;
 
         public MainWindow()
         {
             InitializeComponent();
-            RefreshListSelector();
+
+
         }
 
-        //------------------------------------------------------------------
-        //  PRIMARY UI EVENT HANDLERS
-        //------------------------------------------------------------------
+        private void THIS_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                //await Task.Delay(1500);
+
+                btnLoadTasks_Click(sender, e);
+
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+
+
+            IsLoading = false;
+        }
 
         // Create a new list
         private void AddNewListButton_Click(object sender, RoutedEventArgs e)
@@ -73,7 +79,7 @@ namespace TodoApp
             if (!string.IsNullOrWhiteSpace(newListName))
             {
                 // Check if a list with that name already exists
-                if (appData.Lists.Any(l => l.Name.Equals(newListName, StringComparison.OrdinalIgnoreCase)))
+                if (MyToDoLists.Any(l => l.Name.Equals(newListName, StringComparison.OrdinalIgnoreCase)))
                 {
                     MessageBox.Show("A list with that name already exists.",
                                     "Duplicate List Name",
@@ -83,16 +89,19 @@ namespace TodoApp
                 }
 
                 var newList = new TodoList { Name = newListName };
-                appData.Lists.Add(newList);
-                RefreshListSelector();
-                ListSelector.SelectedItem = newList;
+
+                MyToDoLists.Add(newList);
+
+                //cbxListSelector.SelectedItem = newList;
             }
         }
+
 
         // Remove the currently selected list
         private void RemoveListButton_Click(object sender, RoutedEventArgs e)
         {
-            var selectedList = ListSelector.SelectedItem as TodoList;
+            var selectedList = CurrentToDoList;
+
             if (selectedList != null)
             {
                 var result = MessageBox.Show(
@@ -103,23 +112,16 @@ namespace TodoApp
 
                 if (result == MessageBoxResult.Yes)
                 {
-                    appData.Lists.Remove(selectedList);
-                    RefreshListSelector();
-                    TaskList.ItemsSource = null;
+                    MyToDoLists.Remove(selectedList);
                 }
             }
-        }
-
-        // When a different list is selected, show its tasks
-        private void ListSelector_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-        {
-            RefreshTaskList();
         }
 
         // Add a new task to the currently selected list
         private void AddTask_Click(object sender, RoutedEventArgs e)
         {
-            var selectedList = ListSelector.SelectedItem as TodoList;
+            var selectedList = CurrentToDoList;
+
             if (selectedList == null)
             {
                 MessageBox.Show("Please select or create a list first.",
@@ -129,7 +131,8 @@ namespace TodoApp
                 return;
             }
 
-            string title = TaskInput.Text?.Trim();
+            string title = TaskInput.Text.Trim();
+
             if (!string.IsNullOrEmpty(title))
             {
                 var newTask = new TodoTask
@@ -137,8 +140,9 @@ namespace TodoApp
                     Title = title,
                     IsCompleted = false
                 };
+
                 selectedList.Tasks.Add(newTask);
-                RefreshTaskList();
+
                 TaskInput.Clear();
             }
         }
@@ -146,28 +150,24 @@ namespace TodoApp
         // Remove a specific task from the current list
         private void RemoveTaskButton_Click(object sender, RoutedEventArgs e)
         {
-            var selectedList = ListSelector.SelectedItem as TodoList;
-            if (selectedList == null) return;
+            var to_do_item = (sender as Button).DataContext as TodoTask;
 
-            // The button's Tag property is bound to the Task object
-            var button = sender as System.Windows.Controls.Button;
-            var taskToRemove = button?.Tag as TodoTask;
-            if (taskToRemove != null)
-            {
-                selectedList.Tasks.Remove(taskToRemove);
-                RefreshTaskList();
-            }
+            if (to_do_item is null)
+                return;
+
+            CurrentToDoList.Tasks.Remove(to_do_item);
         }
 
         // Save all lists to a JSON file
-        private void SaveTasks_Click(object sender, RoutedEventArgs e)
+        private void btnSaveTasks_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                string jsonString = JsonSerializer.Serialize(appData, new JsonSerializerOptions
+                string jsonString = JsonSerializer.Serialize(MyToDoLists, new JsonSerializerOptions
                 {
                     WriteIndented = true
                 });
+
                 File.WriteAllText("tasks.json", jsonString);
                 MessageBox.Show("All lists have been saved to tasks.json.",
                                 "Save Successful",
@@ -184,7 +184,7 @@ namespace TodoApp
         }
 
         // Load all lists from the JSON file
-        private void LoadTasks_Click(object sender, RoutedEventArgs e)
+        private void btnLoadTasks_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -198,15 +198,20 @@ namespace TodoApp
                 }
 
                 string jsonString = File.ReadAllText("tasks.json");
-                var loadedData = JsonSerializer.Deserialize<AppData>(jsonString);
+                var loadedData = JsonSerializer.Deserialize<IEnumerable<TodoList>>(jsonString);
+
                 if (loadedData != null)
                 {
-                    appData = loadedData;
-                    RefreshListSelector();
-                    MessageBox.Show("All lists have been loaded from tasks.json.",
-                                    "Load Successful",
-                                    MessageBoxButton.OK,
-                                    MessageBoxImage.Information);
+                    MyToDoLists = new ObservableCollection<TodoList>(loadedData);
+
+                    //MyToDoLists.Clear();
+
+                    //foreach (var todo in loadedData)
+                    //{
+                    //    MyToDoLists.Add(todo);
+                    //};
+
+                    Debug.WriteLine("All lists have been loaded from tasks.json.");
                 }
             }
             catch (Exception ex)
@@ -218,31 +223,5 @@ namespace TodoApp
             }
         }
 
-        //------------------------------------------------------------------
-        //  HELPER METHODS
-        //------------------------------------------------------------------
-
-        // Refresh the ComboBox that displays the lists
-        private void RefreshListSelector()
-        {
-            ListSelector.ItemsSource = null;
-            ListSelector.ItemsSource = appData.Lists;
-            ListSelector.DisplayMemberPath = "Name";
-        }
-
-        // Refresh the task list display for the currently selected list
-        private void RefreshTaskList()
-        {
-            var selectedList = ListSelector.SelectedItem as TodoList;
-            if (selectedList != null)
-            {
-                TaskList.ItemsSource = null;
-                TaskList.ItemsSource = selectedList.Tasks;
-            }
-            else
-            {
-                TaskList.ItemsSource = null;
-            }
-        }
     }
 }
